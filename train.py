@@ -35,6 +35,7 @@ def setup_training_loop_kwargs(
     snap       = None, # Snapshot interval: <int>, default = 50 ticks
     metrics    = None, # List of metric names: [], ['fid50k_full'] (default), ...
     seed       = None, # Random seed: <int>, default = 0
+    greyscale  = None, # Use greyscale images
 
     # Dataset.
     data       = None, # Training dataset (required): <path>
@@ -67,9 +68,9 @@ def setup_training_loop_kwargs(
 ):
     args = dnnlib.EasyDict()
 
-    # ------------------------------------------
-    # General options: gpus, snap, metrics, seed
-    # ------------------------------------------
+    # -----------------------------------------------------
+    # General options: gpus, snap, metrics, seed, greyscale
+    # -----------------------------------------------------
 
     if gpus is None:
         gpus = 1
@@ -97,6 +98,10 @@ def setup_training_loop_kwargs(
         seed = 0
     assert isinstance(seed, int)
     args.random_seed = seed
+
+    if greyscale is None:
+        greyscale = False
+    img_channels = 1 if greyscale else 3
 
     # -----------------------------------
     # Dataset: data, cond, subset, mirror
@@ -173,8 +178,8 @@ def setup_training_loop_kwargs(
         spec.gamma = 0.0002 * (res ** 2) / spec.mb # heuristic formula
         spec.ema = spec.mb * 10 / 32
 
-    args.G_kwargs = dnnlib.EasyDict(class_name='training.networks.Generator', z_dim=512, w_dim=512, mapping_kwargs=dnnlib.EasyDict(), synthesis_kwargs=dnnlib.EasyDict())
-    args.D_kwargs = dnnlib.EasyDict(class_name='training.networks.Discriminator', block_kwargs=dnnlib.EasyDict(), mapping_kwargs=dnnlib.EasyDict(), epilogue_kwargs=dnnlib.EasyDict())
+    args.G_kwargs = dnnlib.EasyDict(class_name='training.networks.Generator', z_dim=512, w_dim=512, img_channels=img_channels, mapping_kwargs=dnnlib.EasyDict(), synthesis_kwargs=dnnlib.EasyDict())
+    args.D_kwargs = dnnlib.EasyDict(class_name='training.networks.Discriminator', block_kwargs=dnnlib.EasyDict(), img_channels=img_channels, mapping_kwargs=dnnlib.EasyDict(), epilogue_kwargs=dnnlib.EasyDict())
     args.G_kwargs.synthesis_kwargs.channel_base = args.D_kwargs.channel_base = int(spec.fmaps * 32768)
     args.G_kwargs.synthesis_kwargs.channel_max = args.D_kwargs.channel_max = 512
     args.G_kwargs.mapping_kwargs.num_layers = spec.map
@@ -405,6 +410,7 @@ class CommaSeparatedList(click.ParamType):
 @click.option('--metrics', help='Comma-separated list or "none" [default: fid50k_full]', type=CommaSeparatedList())
 @click.option('--seed', help='Random seed [default: 0]', type=int, metavar='INT')
 @click.option('-n', '--dry-run', help='Print training options and exit', is_flag=True)
+@click.option('--greyscale', help='Use greyscale images', type=bool, metavar='BOOL')
 
 # Dataset.
 @click.option('--data', help='Training data (directory or zip)', metavar='PATH', required=True)
