@@ -29,12 +29,14 @@ class Dataset(torch.utils.data.Dataset):
         use_labels  = False,    # Enable conditioning labels? False = label dimension is zero.
         xflip       = False,    # Artificially double the size of the dataset via x-flips. Applied after max_size.
         random_seed = 0,        # Random seed to use when applying max_size.
+        greyscale   = True,     # Return single channel (greyscale) images
     ):
         self._name = name
         self._raw_shape = list(raw_shape)
         self._use_labels = use_labels
         self._raw_labels = None
         self._label_shape = None
+        self._greyscale = greyscale
 
         # Apply max_size.
         self._raw_idx = np.arange(self._raw_shape[0], dtype=np.int64)
@@ -85,6 +87,8 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         image = self._load_raw_image(self._raw_idx[idx])
         assert isinstance(image, np.ndarray)
+        if self._greyscale:
+            image = image[0, ...]
         assert list(image.shape) == self.image_shape
         assert image.dtype == np.uint8
         if self._xflip[idx]:
@@ -113,12 +117,18 @@ class Dataset(torch.utils.data.Dataset):
 
     @property
     def image_shape(self):
-        return list(self._raw_shape[1:])
+        if self._greyscale:
+            return [1] + list(self._raw_shape[2:])
+        else:
+            return list(self._raw_shape[1:])
 
     @property
     def num_channels(self):
         assert len(self.image_shape) == 3 # CHW
-        return self.image_shape[0]
+        if self._greyscale:
+            return 1
+        else:
+            return self.image_shape[0]
 
     @property
     def resolution(self):
